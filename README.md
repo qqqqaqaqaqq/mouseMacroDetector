@@ -77,3 +77,5 @@ Manual.pptx
 
 # 예시용 모델
 model 경로 => app.models.weights
+
+[![Video Label](https://youtu.be/iwi31PxQc3I)
