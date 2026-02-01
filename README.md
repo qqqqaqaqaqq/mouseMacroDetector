@@ -18,6 +18,8 @@ Detection Logic
 - Transformer Encoder: Utilizes the Multi-Head Self-Attention mechanism to scan the entire sequence simultaneously, capturing how past movements influence the present state.
 - Linear Decoder: Reconstructs the abstract features extracted by the encoder back into the original 5-feature dimensions.
 
+![Architecture Diagram](./public/Architecture.png)
+
 ---
 # 지원 프로그램
 - postgres
