@@ -63,3 +63,6 @@ pip install -r requirements.txt
 
 # 사용 설명서
 사용설명서.txt
+
+# 예시용 모델 첨부
+model 경로 => app.models.weights
