@@ -72,11 +72,18 @@ keyboard
 pip install -r requirements.txt
 ```
 
+# 주의 사항
+학습 시 설정한
+SEQ_LEN, d_model, num_layers, dropout
+
+값이 추론 시 동일 해야 정상 작동 함.
+
 # 사용 설명서 (Manual)
 Manual.pptx
 
 # 예시용 모델
 model 경로 => app.models.weights
+=> SED_LEN=100, d_model=256, num_layers=3, dropout=0.3
 
 # 영상
 [![실행 영상](https://img.youtube.com/vi/iwi31PxQc3I/0.jpg)](https://youtu.be/iwi31PxQc3I)
