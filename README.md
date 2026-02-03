@@ -69,8 +69,6 @@ The transition from a Polling-loop to an **Event-driven** model solves the "stut
 | **Data Quality** | Lossy / Synthetic | High-Fidelity / Organic |
 | **Human Jitter** | Smoothed out (Filtered) | Captured accurately (Essential for AI) |
 
----
-
 ## 🚀 How to Run
 1. **Configure:** Edit `config.json` to set your desired `tolerance`, `threshold`, and `seq_len`.
 2. **Record/Detect:**
