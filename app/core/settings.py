@@ -1,17 +1,22 @@
 import os
 import json
 import sys
-from pydantic_settings import BaseSettings
-from typing import Optional
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    # ===============================
+    # DB 설정 (.env)
+    # ===============================
     DB_HOST: str = "localhost"
     DB_PORT: int = 5432
     DB_NAME: str = "your_db_name"
     DB_USER: str = "postgres"
     DB_PASSWORD: str = "your_password"
 
+    # ===============================
+    # App / Model 설정 (config.json)
+    # ===============================
     SEQ_LEN: int = 300
     STRIDE: int = 50
     tolerance: float = 0.05
@@ -31,6 +36,18 @@ class Settings(BaseSettings):
     weight_decay: float = 0.5
     dim_feedforward: int = 128
 
+    # ===============================
+    # Pydantic v2 Config
+    # ===============================
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore"
+    )
+
+    # ===============================
+    # DB URL (postgres 전용)
+    # ===============================
     @property
     def DATABASE_URL(self) -> str:
         return (
@@ -39,10 +56,9 @@ class Settings(BaseSettings):
             f"@{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
         )
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
-
+    # ===============================
+    # Loader
+    # ===============================
     @classmethod
     def load_settings(cls):
         base_path = os.path.dirname(os.path.abspath(sys.argv[0]))
@@ -51,22 +67,28 @@ class Settings(BaseSettings):
         config_dir = os.path.join(base_path, "config")
         config_path = os.path.join(config_dir, "config.json")
 
-
+        # -------------------------------------------------
+        # 1. .env 생성
+        # -------------------------------------------------
         if not os.path.exists(env_path):
-            env_template = (
-                "DB_HOST=localhost\n"
-                "DB_PORT=5432\n"
-                "DB_NAME=your_db_name\n"
-                "DB_USER=postgres\n"
-                "DB_PASSWORD=your_password\n"
-            )
             with open(env_path, "w", encoding="utf-8") as f:
-                f.write(env_template)
-            print("📝 [.env] file created (default template).")
+                f.write(
+                    "DB_HOST=localhost\n"
+                    "DB_PORT=5432\n"
+                    "DB_NAME=your_db_name\n"
+                    "DB_USER=postgres\n"
+                    "DB_PASSWORD=your_password\n"
+                )
+            print("📝 [.env] created")
 
-        if not os.path.exists(config_dir):
-            os.makedirs(config_dir)
+        # -------------------------------------------------
+        # 2. config 폴더 생성
+        # -------------------------------------------------
+        os.makedirs(config_dir, exist_ok=True)
 
+        # -------------------------------------------------
+        # 3. config.json 기본값 생성
+        # -------------------------------------------------
         if not os.path.exists(config_path):
             default_config = {
                 "SEQ_LEN": 100,
@@ -108,26 +130,31 @@ class Settings(BaseSettings):
             with open(config_path, "w", encoding="utf-8") as f:
                 json.dump(default_config, f, indent=4, ensure_ascii=False)
 
-            print("📝 [config/config.json] default file created.")
+            print("📝 [config/config.json] created")
 
-        config_data = {}
+        # -------------------------------------------------
+        # 4. Settings 생성 (항상 env 로드)
+        # -------------------------------------------------
+        inst = cls(_env_file=env_path)
+
+        # -------------------------------------------------
+        # 5. JSON 병합
+        # -------------------------------------------------
         try:
             with open(config_path, "r", encoding="utf-8") as f:
                 config_data = json.load(f)
+
+            for key, value in config_data.items():
+                if hasattr(inst, key):
+                    setattr(inst, key, value)
+
         except Exception as e:
-            print(f"⚠️ config.json load failed: {e}")
-
-        recorder_type = config_data.get("Recorder", "json")
-
-        if recorder_type == "postgres":
-            inst = cls(_env_file=env_path)
-        else:
-            inst = cls(_env_file=None)
-
-        for key, value in config_data.items():
-            if hasattr(inst, key):
-                setattr(inst, key, value)
+            print("⚠️ config.json load error:", e)
 
         return inst
 
+
+# ===============================
+# Singleton
+# ===============================
 settings = Settings.load_settings()

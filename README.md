@@ -40,12 +40,18 @@ A high-precision, AI-powered mouse movement analyzer designed to distinguish bet
     * Acceleration: $a = \Delta v / \Delta t$
     * Jerk: $j = \Delta a / \Delta t$
 
-### 3. System Resilience & Stability (안정성 강화) 🛡️
+### 3. Automated Model Optimization (학습 및 임계값 자동화) 🤖
+* **Training Optimization:** Increased Epochs from **50 to 300** and transitioned the loss function to **MSE (Mean Squared Error)** for superior convergence.
+* **Auto-Threshold Calculation:** Implemented an automated threshold logic during the training phase. The system now **automatically calculates the optimal Threshold** based on the training data distribution, minimizing manual tuning.
+* **Post-Analysis Mode:** Added **JSON Data Inference** to analyze existing logs for post-event forensics.
+* **Centralized Architecture:** All hyperparameters and the auto-derived threshold are managed via `config.json`.
+
+### 4. System Resilience & Stability (안정성 강화) 🛡️
 * **Asynchronous Data Handling:** Separated the Listener (Data Capture) from the Main Loop (Inference) using a **Queue-based architecture**. This eliminates mouse stuttering and ensures performance even under high CPU load.
 * **Protection Mode (Fail-Safe):** Integrated a protocol to maintain recording stability and prevent crashes when interacting with restricted system windows (e.g., Task Manager).
 * **Robust Exception Handling:** Enhanced error management for file I/O operations (config/weights) and hardware interrupt interruptions.
 
-### 4. Model & Inference Upgrade
+### 5. Model & Inference Upgrade
 * **Training Optimization:** Increased Epochs from **50 to 300** and transitioned the loss function to **MSE (Mean Squared Error)** for superior convergence.
 * **Post-Analysis Mode:** Added **JSON Data Inference** to analyze existing logs for post-event forensics.
 * **Centralized Architecture:** All hyperparameters are now managed via a single `config.json`.

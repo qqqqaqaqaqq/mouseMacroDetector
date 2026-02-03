@@ -22,6 +22,7 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
 
     # 시작 전 카운트다운
     timeinterval = 7
+
     while timeinterval > 0:
         msg = f"train 시작까지 count : {timeinterval}"
         if log_queue: log_queue.put(msg)
@@ -35,11 +36,14 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
     else:
         print("🟢 Macro Detector Running")
 
+    log_queue.put("🚨 데이터 극 초반은 macro로 작동하며 점차 적으로 하락합니다")
+
     state = {
-        'last_ts': time.perf_counter()
+        'last_ts': time.perf_counter(),
+        "lendata": 0,
     }
 
-    def on_move(x, y):
+    def on_move(x, y):     
         now_ts = time.perf_counter()
         delta = now_ts - state['last_ts']
 
@@ -51,7 +55,17 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
                 'deltatime': delta
             }
             state['last_ts'] = now_ts
+
             g_vars.MOUSE_QUEUE.put(data)
+
+            if state['lendata'] is not None:
+                state['lendata'] += 1
+
+                if state['lendata'] <= g_vars.SEQ_LEN * 2:
+                    log_queue.put(f"⏳ Data 수집 중... {state['lendata']} / {g_vars.SEQ_LEN * 2}")
+                elif state['lendata'] == g_vars.SEQ_LEN:
+                    log_queue.put("✅ Data 수집 완료")
+                    state['lendata'] = None
 
     listener = mouse.Listener(on_move=on_move)
     listener.start()
