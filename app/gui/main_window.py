@@ -11,6 +11,7 @@ from multiprocessing import Event
 
 import app.core.globals as g_vars
 from app.gui import UIHandler
+from app.utilites.get_resource_path import get_resource_path
 
 class VantageUI(QMainWindow):
     def __init__(self):
@@ -325,12 +326,10 @@ class VantageUI(QMainWindow):
         """
         print("css 불러오는중")
         c = self.themes[self.current_theme]
-        base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-        css_path = os.path.join(base_path, "style.css")
-
-        print("base_path:", base_path)
-        print("css_path:", css_path)
-        print("exists?", os.path.exists(css_path))
+        css_path = get_resource_path(os.path.join("app", "gui", "style.css"))
+    
+        print(f"최종 경로: {css_path}")
+        print(f"파일 존재 여부: {os.path.exists(css_path)}")
 
         try:
             # 1. 외부 style.css 읽기
