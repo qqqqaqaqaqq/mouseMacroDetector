@@ -4,12 +4,13 @@ import torch.optim as optim
 from torch.utils.data import DataLoader
 import pandas as pd
 import time
-
+import numpy as np
+import json
 
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import RobustScaler
 
-import app.core.globals as globals
+import app.core.globals as g_vars
 import joblib
 # 모델
 from app.models.MousePoint import MousePoint
@@ -23,7 +24,7 @@ from multiprocessing import Queue
 
 from app.utilites.make_df_from_points import make_df_from_points
 from app.utilites.points_to_features import points_to_features
-
+from app.utilites.save_confing import update_parameters
 
 def train_plot_main(train_queue: Queue):
     import sys
@@ -54,7 +55,7 @@ class TrainMode():
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
         self.stop_event=stop_event
-        self.seq_len=globals.SEQ_LEN
+        self.seq_len=g_vars.SEQ_LEN
         self.log_queue:Queue=log_queue
 
         self.plot_proc = None
@@ -67,105 +68,121 @@ class TrainMode():
         from multiprocessing import Process
         self.plot_proc = Process(
             target=train_plot_main,
-            args=(globals.TRAIN_DATA,),
+            args=(g_vars.TRAIN_DATA,),
             daemon=False
         )
         self.plot_proc.start()
         
     # train
-    def train_start(self, train_dataset, val_dataset, batch_size=globals.batch_size, epochs=2000, lr=globals.lr,
+    def train_start(self, train_dataset, val_dataset, batch_size=g_vars.batch_size, epochs=2000, lr=g_vars.lr,
                     device=None, model=None, stop_event=None, patience=20, log_queue=None, save_path="best_model.pth"):
-        
-        self.start_plot_process()
+        try:
+            self.start_plot_process()
 
-        train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-        val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+            train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+            val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
 
-        # 자기지도 학습용: MSELoss
-        criterion = nn.MSELoss()
-        optimizer = optim.Adam(model.parameters(), lr=lr)
+            criterion = nn.MSELoss()
+            optimizer = optim.Adam(model.parameters(), lr=lr)
 
-        best_val_loss = float('inf')
-        epochs_no_improve = 0
-
-        for epoch in range(epochs):
-            if stop_event.is_set():
-                self.train_stop_event(log_queue=log_queue)
-                break
-                
-
-            # ===== Train Phase =====
-            model.train()
-            total_train_loss = 0
-
-            for batch_x in train_loader:
-                batch_x = batch_x.to(device)
-
-                optimizer.zero_grad()
-                outputs = model(batch_x)           # 입력 시퀀스 재구성
-                loss = criterion(outputs, batch_x) # MSE 계산
-                
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-                optimizer.step()
-
-                total_train_loss += loss.item() * batch_x.size(0)
-
-            avg_train_loss = total_train_loss / len(train_dataset)
-
-            # ===== Validation Phase =====
-            model.eval()
-            total_val_loss = 0
+            best_val_loss = float('inf')
+            epochs_no_improve = 0
             
-            with torch.no_grad():
-                for batch_x in val_loader:
-                    batch_x = batch_x.to(device)
-                    outputs = model(batch_x)
-                    loss = criterion(outputs, batch_x)
-                    total_val_loss += loss.item() * batch_x.size(0)
+            # 추천 임계치를 저장할 변수
+            recommended_base_threshold = 0.0
 
-            avg_val_loss = total_val_loss / len(val_dataset)
-
-            # ===== Logging & Early Stopping =====
-            status_msg = f"Epoch {epoch+1}/{epochs} | Train Loss: {avg_train_loss:.6f} | Val Loss: {avg_val_loss:.6f}"
-
-            if globals.TRAIN_DATA is not None:
-                globals.TRAIN_DATA.put((float(avg_train_loss), float(avg_val_loss)))
-
-            if log_queue: log_queue.put(status_msg)
-
-            if avg_val_loss < best_val_loss:
-                best_val_loss = avg_val_loss
-                epochs_no_improve = 0
-                torch.save(model.state_dict(), save_path)
-                if log_queue: log_queue.put(f"  >> [Model Saved] Best Val Loss: {best_val_loss:.6f}")
-            else:
-                epochs_no_improve += 1
-                if epochs_no_improve >= patience:
-                    if log_queue: log_queue.put(f"Early Stopping: {patience} epoch 동안 개선 없음.")
-                    if stop_event: stop_event.set()
+            for epoch in range(epochs):
+                if stop_event.is_set():
+                    self.train_stop_event(log_queue=log_queue)
                     break
 
-        if log_queue: log_queue.put(f"학습 종료. 최종 Best Val Loss: {best_val_loss:.6f}")
-        
-    def clip_outliers(self, df, columns):
-        df_clipped = df.copy()
-        for col in columns:
-            # 상위 1%와 하위 1% 지점 계산
-            lower_bound = df_clipped[col].quantile(0.01)
-            upper_bound = df_clipped[col].quantile(0.99)
-            # 해당 범위를 벗어나는 값들을 경계값으로 고정
-            df_clipped[col] = df_clipped[col].clip(lower=lower_bound, upper=upper_bound)
-        return df_clipped
+                # ===== Train Phase =====
+                model.train()
+                total_train_loss = 0
+                for batch_x in train_loader:
+                    batch_x = batch_x.to(device)
+                    optimizer.zero_grad()
+                    outputs = model(batch_x)
+                    loss = criterion(outputs, batch_x)
+                    loss.backward()
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+                    optimizer.step()
+                    total_train_loss += loss.item() * batch_x.size(0)
+
+                avg_train_loss = total_train_loss / len(train_dataset)
+
+                # ===== Validation Phase =====
+                model.eval()
+                total_val_loss = 0
+                all_val_errors = [] # 샘플별 개별 에러 수집용 리스트
+
+                with torch.no_grad():
+                    for batch_x in val_loader:
+                        batch_x = batch_x.to(device)
+                        outputs = model(batch_x)
+                        
+                        # 1. 평균 Loss 계산 (기존 유지)
+                        loss = criterion(outputs, batch_x)
+                        total_val_loss += loss.item() * batch_x.size(0)
+                        
+                        # 2. 샘플별 개별 MAE 에러 수집 (임계치 예측용)
+                        # outputs/batch_x: (Batch, Seq_len, Features)
+                        # 각 샘플별로 모든 차원의 평균 절대 오차를 구함
+                        sample_errors = torch.abs(outputs - batch_x).mean(dim=(1, 2))
+                        all_val_errors.extend(sample_errors.cpu().numpy())
+
+                avg_val_loss = total_val_loss / len(val_dataset)
+
+                # 3. 임계치 통계 계산 (상위 99.7% 지점 추출)
+                # 이 값은 "정상 데이터 중 가장 튀는 놈들"의 기준선이 됩니다.
+                current_epoch_threshold = np.percentile(all_val_errors, 99.7)
+
+                # ===== Logging & Early Stopping =====
+                status_msg = f"Epoch {epoch+1}/{epochs} | Train: {avg_train_loss:.6f} | Val: {avg_val_loss:.6f} | Est.Thresh: {current_epoch_threshold:.6f}"
+
+                if g_vars.TRAIN_DATA is not None:
+                    g_vars.TRAIN_DATA.put((float(avg_train_loss), float(avg_val_loss)))
+
+                if log_queue: log_queue.put(status_msg)
+
+                if avg_val_loss < best_val_loss:
+                    best_val_loss = avg_val_loss
+                    recommended_base_threshold = current_epoch_threshold # 최적 모델일 때의 임계치 기억
+                    epochs_no_improve = 0
+                    torch.save(model.state_dict(), save_path)
+                    if log_queue: log_queue.put(f"  >> [Model Saved] Best Val Loss: {best_val_loss:.6f}")
+                else:
+                    epochs_no_improve += 1
+                    if epochs_no_improve >= patience:
+                        if log_queue: log_queue.put(f"Early Stopping: {patience} epoch 동안 개선 없음.")
+                        if stop_event: stop_event.set()
+                        break
+
+            # 최종 출력 시 추천 임계값을 함께 알려줌
+            final_msg = f"학습 종료. 최적 Val Loss: {best_val_loss:.6f} | 추천 Base Threshold: {recommended_base_threshold:.6f}"
+            if log_queue: log_queue.put(final_msg)
+            
+            # g_vars에 자동으로 업데이트하거나 저장하여 _infer에서 쓰게 할 수도 있습니다.
+            g_vars.threshold = recommended_base_threshold 
+            update_parameters({"THRES" : recommended_base_threshold})
+
+        finally:
+            self.train_stop_event(log_queue=log_queue)
+            if 'model' in locals():
+                model_cpu = model.to('cpu')
+                del model_cpu
+                del model
+            import gc
+            gc.collect()
         
     def main(self):
-        self.log_queue.put(f"device : {self.device} | SEQ_LEN : {globals.SEQ_LEN} | STRIDE : {globals.STRIDE}")
+        self.log_queue.put(f"device : {self.device} | SEQ_LEN : {g_vars.SEQ_LEN} | STRIDE : {g_vars.STRIDE}")
 
         # ===== 데이터 읽기 =====
-        if globals.Recorder == "postgres":
+        if g_vars.Recorder == "postgres":
             user_all: list[MousePoint] = DBController.read(True, log_queue=self.log_queue)
             is_dict = False
-        elif globals.Recorder == "json":
+        elif g_vars.Recorder == "json":
             user_all: list[dict] = JsonController.read(True, log_queue=self.log_queue)
             is_dict = True
 
@@ -177,14 +194,26 @@ class TrainMode():
         setting_user_df_chunk: pd.DataFrame = indicators_generation(user_df_chunk)
         
         # ===== Feature 필터 =====
-        setting_user_df_chunk = setting_user_df_chunk[globals.FEATURES].copy()
+        setting_user_df_chunk = setting_user_df_chunk[g_vars.FEATURES].copy()
 
-        setting_user_df_chunk = self.clip_outliers(setting_user_df_chunk, globals.FEATURES)
+        clip_bounds_dict = {}
+        for col in g_vars.FEATURES:
+            # numpy float64를 일반 python float으로 변환하여 JSON 에러 방지
+            lower = float(setting_user_df_chunk[col].quantile(0.01))
+            upper = float(setting_user_df_chunk[col].quantile(0.99))
+            clip_bounds_dict[col] = {"min": lower, "max": upper}
+
+            setting_user_df_chunk[col] = setting_user_df_chunk[col].clip(lower, upper)
+        
+        # 전역 변수 업데이트
+        g_vars.CLIP_BOUNDS = clip_bounds_dict
+
+        print(f"{json.dumps(clip_bounds_dict, indent=2)} Save")
 
         print(f"setting_user_df_chunk : {setting_user_df_chunk}")
 
 
-        if len(setting_user_df_chunk) < globals.SEQ_LEN:
+        if len(setting_user_df_chunk) < g_vars.SEQ_LEN:
             self.log_queue.put("데이터가 충분하지 않습니다.")
             return
 
@@ -195,9 +224,9 @@ class TrainMode():
         user_train_df, user_val_df = train_test_split(setting_user_df_chunk, test_size=0.2, shuffle=False)
 
         # ===== Sequence =====q
-        user_train_seq, user_train_pass_seq = points_to_features(df_chunk=user_train_df, seq_len=globals.SEQ_LEN, stride=globals.STRIDE, log_queue=self.log_queue)
+        user_train_seq, user_train_pass_seq = points_to_features(df_chunk=user_train_df, seq_len=g_vars.SEQ_LEN, stride=g_vars.STRIDE, log_queue=self.log_queue)
 
-        user_val_seq, user_val_pass_seq = points_to_features(df_chunk=user_val_df, seq_len=globals.SEQ_LEN, stride=globals.STRIDE, log_queue=self.log_queue)
+        user_val_seq, user_val_pass_seq = points_to_features(df_chunk=user_val_df, seq_len=g_vars.SEQ_LEN, stride=g_vars.STRIDE, log_queue=self.log_queue)
 
         self.log_queue.put(f"Length => user_train_seq : {user_train_pass_seq}")
         self.log_queue.put(f"Length => user_val_pass_seq : {user_val_pass_seq}")
@@ -220,7 +249,7 @@ class TrainMode():
         X_val_reshaped = X_val.reshape(-1, n_features)
         X_val_scaled = scaler.transform(X_val_reshaped)
         X_val = X_val_scaled.reshape(n_val, seq_len, n_features)
-        joblib.dump(scaler, globals.scaler_path)
+        joblib.dump(scaler, g_vars.scaler_path)
         
         train_dataset = MacroDataset(X_train)
         val_dataset   = MacroDataset(X_val)
@@ -236,12 +265,12 @@ class TrainMode():
         print(sample_x[:5])
 
         model = TransformerMacroAutoencoder(
-            input_size=len(globals.FEATURES),
-            d_model=globals.d_model,
+            input_size=len(g_vars.FEATURES),
+            d_model=g_vars.d_model,
             nhead=4,
-            num_layers=globals.num_layers,
+            num_layers=g_vars.num_layers,
             dim_feedforward=128,
-            dropout=globals.dropout
+            dropout=g_vars.dropout
         ).to(self.device)
 
         timeinterval = 10
@@ -259,16 +288,25 @@ class TrainMode():
         self.train_start(
             train_dataset=train_dataset,
             val_dataset=val_dataset, 
-            batch_size=globals.batch_size, 
-            lr=globals.lr,
-            epochs=50,
+            batch_size=g_vars.batch_size, 
+            lr=g_vars.lr,
+            epochs=300,
             device=self.device, 
             model=model, 
             stop_event=self.stop_event, 
             patience=20, 
             log_queue=self.log_queue, 
-            save_path=globals.save_path
+            save_path=g_vars.save_path
         )
 
-    def train_stop_event(self, log_queue:Queue=None):
-        log_queue.put("🛑 Train Stopped")
+    def train_stop_event(self, log_queue: Queue = None):
+        # 1. 시각화 프로세스는 건드리지 않음 (살려둠)
+        if log_queue: 
+            log_queue.put("✅ 학습 루프 종료 (그래프는 유지됩니다)")
+
+        # 2. GPU 메모리 정리 (이것만 해도 리소스 확보에 큰 도움이 됩니다)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        
+        if log_queue: 
+            log_queue.put("🧹 GPU Cache Cleared")

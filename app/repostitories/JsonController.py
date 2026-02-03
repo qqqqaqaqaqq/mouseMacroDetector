@@ -1,10 +1,10 @@
-import app.core.globals as globals
+import app.core.globals as g_vars
 from multiprocessing import Queue
 
 def read(user: bool, log_queue:Queue):
     import os, json
 
-    json_dir = globals.JsonPath
+    json_dir = g_vars.JsonPath
     subfolder = "user" if user else "macro"
     path = os.path.join(json_dir, subfolder)
 

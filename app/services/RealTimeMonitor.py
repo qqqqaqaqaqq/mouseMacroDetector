@@ -6,7 +6,6 @@ import sys
 
 class RealTimeMonitor:
     def __init__(self, features, threshold, window_size=100):
-        # PySide6 -> PyQt6
         self.app = QApplication.instance()
         if not self.app:
             self.app = QApplication(sys.argv)
@@ -19,8 +18,11 @@ class RealTimeMonitor:
         self.plots = []
         self.curves = []
         
-        self.data = np.zeros((len(features) + 1, window_size))
+        # 데이터 구조 변경: [특징들(len(features)) + 에러(1) + 임계치(1), 윈도우 크기]
+        # 즉, 마지막 두 행이 각각 에러값과 동적 임계치값입니다.
+        self.data = np.zeros((len(features) + 2, window_size))
         
+        # Feature별 그래프 생성
         for i, f in enumerate(features):
             p = self.win.addPlot(row=i, col=0, title=f)
             p.showGrid(x=True, y=True)
@@ -28,21 +30,40 @@ class RealTimeMonitor:
             self.plots.append(p)
             self.curves.append(curr_curve)
             
-        self.error_plot = self.win.addPlot(row=len(features), col=0, title="Reconstruction Error")
+        # Reconstruction Error 그래프 (마지막 줄)
+        self.error_plot = self.win.addPlot(row=len(features), col=0, title="Reconstruction Error (Dynamic Threshold)")
+        self.error_plot.showGrid(x=True, y=True)
         
-        # pg.QtCore.Qt.DashLine -> Qt.PenStyle.DashLine (PyQt6 방식)
-        self.error_plot.addLine(y=threshold, pen=pg.mkPen('g', width=2, style=Qt.PenStyle.DashLine))
+        # 에러 곡선 (빨간색)
         self.error_curve = self.error_plot.plot(pen=pg.mkPen('r', width=2))
-
-    def update_view(self, x_tensor_np, error):
-        current_vals = x_tensor_np[0, -1, :]
-        self.data[:, :-1] = self.data[:, 1:]
-        self.data[:-1, -1] = current_vals
-        self.data[-1, -1] = error
         
+        # 동적 임계치 곡선 (초록색 점선)
+        self.threshold_curve = self.error_plot.plot(
+            pen=pg.mkPen('g', width=2, style=Qt.PenStyle.DashLine)
+        )
+
+    def update_view(self, x_tensor_np, error, current_threshold):
+        """
+        x_tensor_np: 모델 입력 데이터
+        error: 계산된 리컨스트럭션 에러
+        current_threshold: 계산된 동적 임계치
+        """
+        # 데이터 롤링 (왼쪽으로 한 칸씩 밀기)
+        self.data[:, :-1] = self.data[:, 1:]
+        
+        # 새로운 데이터 삽입
+        current_vals = x_tensor_np[0, -1, :] # 최신 시퀀스의 마지막 값
+        self.data[:len(self.features), -1] = current_vals
+        self.data[-2, -1] = error            # 에러값 저장
+        self.data[-1, -1] = current_threshold # 임계치값 저장
+        
+        # 각 피처 그래프 업데이트
         for i in range(len(self.features)):
             self.curves[i].setData(self.data[i])
-        self.error_curve.setData(self.data[-1])
+            
+        # 에러 및 임계치 그래프 업데이트
+        self.error_curve.setData(self.data[-2])
+        self.threshold_curve.setData(self.data[-1])
 
 class TrainMonitor:
     def __init__(self, window_size=500):

@@ -9,7 +9,7 @@ import pyautogui
 from app.repostitories.DBController import read as postgresread
 from app.repostitories.JsonController import read as jsonread
 
-import app.core.globals as globals
+import app.core.globals as g_vars
 from app.utilites.make_df_from_points import make_df_from_points
 
 from app.utilites.catmull_rom_spline import linear, ease_in_out_s_curve, ease_in_out_quad_random
@@ -23,7 +23,7 @@ def copy_move(stop_event=None, log_queue: Queue = None):
         stop_event = Event()
 
     # ---------- 데이터 로드 ----------
-    if globals.Recorder == "postgres":
+    if g_vars.Recorder == "postgres":
         points = postgresread(user=True, log_queue=log_queue)
         is_dict = False
     else:

@@ -20,8 +20,22 @@ Detection Logic
 
 ![Architecture Diagram](./public/Architecture.png)
 
+# Update Ver 1.0.1
+Feature
+- Enhanced Tracking Precision: Added .env persistence for tolerance (lower values allow for finer and more detailed mouse data sampling).
+- Improved System Stability: Implemented tolerance to ensure stable inference and training performance even in low-frequency (Low Hz) environments, alongside Protection Mode for restricted windows.
+- Improved Stability (Protection Mode): Added a fail-safe protocol to prevent crashes and ensure stable recording in restricted windows like Task Manager.
+- Epoch 50 => 300
+- Cliping 
+- config.json으로 초기 셋팅값 정리
+
+UI & UX
+- The UI has been refined for a more sophisticated look.
+- Tray Mode Integration: Added a "Minimize to Tray" feature to keep the application running in the background, allowing for a clutter-free workspace.
+
 ---
-# Update
+
+# Update Ver 0.0.0
 - CLI Mode Expansion: Inference Mode now officially supports both Windows CMD and Linux Terminal environments.
 - Portable Release: Executables are now bundled and provided as ZIP archives via PyInstaller for easy deployment.
 
