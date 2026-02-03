@@ -20,82 +20,82 @@ Detection Logic
 
 ![Architecture Diagram](./public/Architecture.png)
 
+# 🚀 Macro Detector Update Ver 0.0.2
+
+A high-precision, AI-powered mouse movement analyzer designed to distinguish between organic human input and synthetic macro patterns through OS-level event tracking and Temporal Feature Engineering.
+
+## 🛠 Key Features & Enhancements
+
+### 1. High-Fidelity Physics-Based Tracking
+* **Enhanced Precision (Tolerance):** Introduced configurable tolerance settings for high-resolution sampling.
+* **Temporal Filtering:** Ensures inference stability across various hardware environments (Low/High Hz) by stabilizing the data entry intervals.
+* **Actual Physics Logic:** Migrated from a fixed-interval polling system to an **OS-level Event Listener** (`pynput.mouse.Listener`).
+    * **Old:** Captured data at forced 0.02s intervals (Digitized/Artificial).
+    * **New:** Captures the "Physical Truth" by recording high-precision $\Delta t$ (e.g., 0.0209s) between hardware interrupts.
+    * **Impact:** Preserves human-centric micro-timing dynamics, acceleration curves, and organic jitter.
+
+### 2. Model & Inference Upgrade
+* **Training Optimization:** Increased Epochs from **50 to 300** and transitioned the loss function to **MSE (Mean Squared Error)** for superior convergence on regression tasks.
+* **Post-Analysis Mode:** Added **JSON Data Inference**. You can now record mouse data and run the detector on saved `.json` files for post-event forensics.
+* **Protection Mode:** Integrated a fail-safe protocol to maintain system stability and prevent crashes when interacting with restricted windows (e.g., Task Manager).
+
+### 3. Centralized Architecture
+* **Config Management:** All hyperparameters and environment variables are now managed via `config.json`.
+* **Feature Engineering:** Improved calculation of **Acceleration** ($a = \Delta v / \Delta t$) and **Jerk** ($j = \Delta a / \Delta t$) by utilizing the new high-precision delta time values.
+
+## ✨ UI & UX Improvements
+* **Refined Interface:** Modernized UI components with a professional dark-themed aesthetic.
+* **Interactive Tooltips:** Added a 1-second delay hint system for all dashboard parameters.
+* **Tray Integration:** "Minimize to Tray" support for seamless background monitoring.
+* **Enhanced Logging:** Real-time macro detection output with siren emojis and probability percentages for better visibility.
+
+
+## 🔴 Critical Fix: Event-Driven Architecture
+The transition from a Polling-loop to an **Event-driven** model solves the "stuttering" issue and data loss. 
+
+| Feature | Polling System (Old) | Event Listener (New) |
+| :--- | :--- | :--- |
+| **Trigger** | Clock Timer (Fixed) | Physical Hardware Interrupt |
+| **Time Delta** | Normalized (Forced 0.02s) | Raw High-Precision (Actual Physics) |
+| **Data Quality** | Lossy / Synthetic | High-Fidelity / Organic |
+| **Human Jitter** | Smoothed out (Filtered) | Captured accurately (Essential for AI) |
+
+
+## 🚀 How to Run
+1.  **Configure:** Edit `config.json` to set your desired `tolerance`, `threshold`, and `seq_len`.
+2.  **Record/Detect:**
+    * Use **Move_Data** to record new human patterns.
+    * Run the **Macro Detector** for real-time monitoring.
+    * Use **Json Data Inference** to analyze existing logs.
+3.  **Train:** Run the training module to update the model with your custom MSE-based weights.
+
 ---
-# Update
-- CLI Mode Expansion: Inference Mode now officially supports both Windows CMD and Linux Terminal environments.
-- Portable Release: Executables are now bundled and provided as ZIP archives via PyInstaller for easy deployment.
+
+## 🚀 Update Ver 0.0.1
+
+### 🔧 Features
+* **CLI Mode Expansion:** Inference Mode now officially supports both **Windows CMD** and **Linux Terminal** environments for broader compatibility.
+* **Portable Release:** Executables are now bundled and distributed as **ZIP archives** via PyInstaller, allowing for easy deployment without complex installation.
+
+### ⌨️ Shortcuts & Commands
+* **Inference Mode (CLI):** - `Start` => `Inference Mode` => `Yes`
+* **Inference Mode (UI):** - `UI` => `Inference Mode` => `No`
+* **Emergency Quit:** `Ctrl + Shift + Q`
 
 ![Cmdupdate](./public/Cmdupdate.png)
 
-Start => inference Mode => yes
-UI => inference Mode => No
-
-Quit => ctrl + shift + q
-
 ---
-# 지원 프로그램
-- postgres
-- json
 
-# 필수 파일
-.env
-```
-# 기록기
-# postgres => postgres, json => json
-Recorder=json
+## 📂 Data Management
+* **Database Support:** Efficient data handling using **PostgreSQL** and **JSON** formats.
 
-# posgres를 사용 시 기입
-DB_HOST=localhost
-DB_USER=postgres
-DB_PASSWORD=your_password
-DB_NAME=your_db_name
-DB_PORT=0000
+## 🛠 Installation
+* To install the required dependencies, run the following command:
+  ```bash
+  pip install -r requirements.txt
 
-# 필수 입력
-SEQ_LEN=100
-STRIDE=50
-JsonPath=./
-threshold=0.7
-d_model=256
-num_layers=3
-dropout=0.3
-batch_size=64
-lr=0.0005
-```
-
-# 설치 목록
-```
-pynput
-torch
-psycopg2-binary
-SQLAlchemy
-pydantic_settings
-pyautogui
-matplotlib
-numpy
-pyqtgraph 
-PySide6
-PyQt6
-keyboard
-```
-
-명령어
-```
-pip install -r requirements.txt
-```
-
-# 주의 사항
-학습 시 설정한
-SEQ_LEN, d_model, num_layers, dropout
-
-값이 추론 시 동일 해야 정상 작동 함.
-
-# 사용 설명서 (Manual)
+## 사용 설명서 (Manual)
 Manual.pptx
 
-# 예시용 모델
-model 경로 => app.models.weights
-=> SED_LEN=100, d_model=256, num_layers=3, dropout=0.3
-
-# 영상
+## 영상
 [![실행 영상](https://img.youtube.com/vi/iwi31PxQc3I/0.jpg)](https://youtu.be/iwi31PxQc3I)

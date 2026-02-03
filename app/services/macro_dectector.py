@@ -1,20 +1,13 @@
 import torch
 import joblib
-
-from collections import deque
-
-from app.models.TransformerMacroDetector import TransformerMacroAutoencoder
-
-from app.services.indicators import indicators_generation
-
+import numpy as np
 import pandas as pd
-import app.core.globals as globals
-from multiprocessing import Queue
+from collections import deque
+from multiprocessing import Queue, Event
 
-from multiprocessing import Process
-    
-from app.utilites.points_to_features import points_to_features
-from multiprocessing import Event
+import app.core.globals as g_vars
+from app.models.TransformerMacroDetector import TransformerMacroAutoencoder
+from app.services.indicators import indicators_generation
 
 def inferece_plot_main(chart_queue: Queue, features, threshold, stop_event=None):
     import sys
@@ -22,136 +15,137 @@ def inferece_plot_main(chart_queue: Queue, features, threshold, stop_event=None)
     from PyQt6.QtCore import QTimer
     
     if stop_event is None:
-        from multiprocessing import Event
         stop_event = Event()
 
     monitor = RealTimeMonitor(features, threshold)
     
     def update():
-        # 1. 큐 확인보다 '중지 이벤트'를 최우선으로 체크
         if stop_event.is_set():
             timer.stop()
             monitor.app.quit()
             return
 
-        # 2. 파이프가 깨졌을 때(BrokenPipe)를 대비한 try-except 강화
         try:
-            # empty() 호출 시에도 파이프 에러가 날 수 있으므로 안으로 밀어넣음
             while not chart_queue.empty():
                 data = chart_queue.get_nowait()
-                monitor.update_view(data[0], data[1])
+                # data: (tensor_np, error, current_threshold)
+                if len(data) == 3:
+                    monitor.update_view(data[0], data[1], data[2])
+                else:
+                    monitor.update_view(data[0], data[1], threshold)
         except (EOFError, BrokenPipeError, ConnectionResetError):
-            # 메인 프로세스가 죽어서 파이프가 끊긴 경우
             timer.stop()
             monitor.app.quit()
         except Exception:
-            # 기타 큐가 비어있는 등의 예외는 무시하고 계속 진행
             pass
                 
     timer = QTimer()
     timer.timeout.connect(update)
-    timer.start(16) 
-    
+    timer.start(16)
     sys.exit(monitor.app.exec())
+
 class MacroDetector:
-    def __init__(self, model_path: str, seq_len=globals.SEQ_LEN, threshold=0.8, device=None, chart_Show=True, stop_event=None):
+    def __init__(self, model_path: str, seq_len=g_vars.SEQ_LEN, threshold=None, device=None, chart_Show=True, stop_event=None):
         self.seq_len = seq_len
-        self.threshold = threshold
+        self.base_threshold = threshold if threshold is not None else g_vars.threshold
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
-        self.stop_event = stop_event
-        if not self.stop_event:
-            self.stop_event = Event()
-
+        # [변경] 최근 100개 데이터 포인트만 유지 (연산 효율화)
+        self.buffer = deque(maxlen=100) 
+        
+        # 노이즈 방지를 위해 최근 3~5개 에러의 평균만 사용 (순간적인 튐 방지)
+        self.smooth_error_buf = deque(maxlen=5) 
+        
+        self.stop_event = stop_event or Event()
         self.chart_Show = chart_Show
         self.plot_proc = None
 
         # ===== 모델 초기화 =====
         self.model = TransformerMacroAutoencoder(
-            input_size=len(globals.FEATURES),
-            d_model=globals.d_model,
-            nhead=4,
-            num_layers=globals.num_layers,
-            dim_feedforward=128,
-            dropout=globals.dropout
+            input_size=len(g_vars.FEATURES),
+            d_model=g_vars.d_model,
+            nhead=g_vars.n_head,
+            num_layers=g_vars.num_layers,
+            dim_feedforward=g_vars.dim_feedforward,
+            dropout=g_vars.dropout
         ).to(self.device)
 
         self.model.load_state_dict(torch.load(model_path, map_location=self.device, weights_only=True))
-        self.model.to(self.device)
         self.model.eval()
 
-        self.scaler = joblib.load(globals.scaler_path)
+        self.scaler = joblib.load(g_vars.scaler_path)
 
-        # ===== 좌표 buffer =====
-        self.buffer = deque(maxlen=seq_len * 3)
-        self.prev_speed = 0.0
+    def push(self, data: dict):
+        self.buffer.append((data.get('x'), data.get('y'), data.get('timestamp'), data.get('deltatime')))
+        
+        # 최소 seq_len은 채워져야 분석 시작
+        if len(self.buffer) < self.seq_len:
+            return None
+        return self._infer()
 
     def start_plot_process(self):
-        if not self.chart_Show:
-            return
-
-        if self.plot_proc and self.plot_proc.is_alive():
+        """실시간 차트 프로세스를 시작합니다."""
+        if not self.chart_Show or (self.plot_proc and self.plot_proc.is_alive()):
             return
 
         from multiprocessing import Process
+        # inferece_plot_main는 파일 상단에 정의되어 있어야 합니다.
         self.plot_proc = Process(
-            target=inferece_plot_main,
-            args=(
-                globals.CHART_DATA,
-                globals.FEATURES,
-                self.threshold,
-                self.stop_event
-            ),
+            target=inferece_plot_main, 
+            args=(g_vars.CHART_DATA, g_vars.FEATURES, self.base_threshold, self.stop_event),
             daemon=False
         )
         self.plot_proc.start()
 
-    def push(self, data:dict):
-        self.buffer.append((data.get('x'), data.get('y'), data.get('timestamp'), data.get('deltatime')))
-
-        if len(self.buffer) < self.seq_len * 3:
-            return None
-        
-        return self._infer()
-
     def _infer(self):
-        xs = [p[0] for p in self.buffer]
-        ys = [p[1] for p in self.buffer]
-        ts = [p[2] for p in self.buffer] 
-        deltatime = [p[3] for p in self.buffer] 
-
-        df = pd.DataFrame({"timestamp": ts, "x": xs, "y": ys, "deltatime" : deltatime})
+        # 1. 최근 100개 데이터로 피처 생성
+        df = pd.DataFrame(list(self.buffer), columns=["x", "y", "timestamp", "deltatime"])
         df = indicators_generation(df)
-        df = df.sort_values('timestamp').reset_index(drop=True)
-        df = df[globals.FEATURES].copy()
+
+        # 2. 모델 입력용 마지막 seq_len 추출
+        df_features = df[g_vars.FEATURES].tail(self.seq_len).copy()
         
-        if len(df) < self.seq_len:
+        if g_vars.CLIP_BOUNDS:
+            for col, b in g_vars.CLIP_BOUNDS.items():
+                if col in df_features.columns:
+                    df_features[col] = df_features[col].clip(lower=b['min'], upper=b['max'])
+
+        try:
+            X_scaled = self.scaler.transform(df_features.values)
+            X_tensor = torch.tensor(X_scaled, dtype=torch.float32).unsqueeze(0).to(self.device)
+            
+            with torch.no_grad():
+                output = self.model(X_tensor)
+                # 재구성 에러 (Reconstruction Error)
+                recon_error = torch.mean((output - X_tensor)**2).item()
+        except Exception as e:
+            print(f"❌ Inference Error: {e}")
             return None
-        
-        # ===== Feature 추출 =====
-        X_infer, _ = points_to_features(df_chunk=df, seq_len=self.seq_len, stride=globals.STRIDE)
 
-        # [수정 2] points_to_features 결과가 비어있거나 차원이 맞지 않는 경우 체크
-        if X_infer is None or X_infer.size == 0 or len(X_infer.shape) < 3:
-            return None
+        # 3. 에러 스무딩 (너무 민감하게 반응하지 않도록 최근 5개 평균)
+        self.smooth_error_buf.append(recon_error)
+        avg_error = np.mean(self.smooth_error_buf)
 
-        # 이제 안전하게 shape를 가져올 수 있습니다.
-        n_infer, seq_len, n_features = X_infer.shape
+        # 4. [변경] 단순 Threshold 판정 로직
+        # 평균 에러가 설정한 임계값을 넘으면 바로 매크로(False) 판정
+        is_human = avg_error < self.base_threshold * 1.05
+        
+        # 시각적인 확률 표기 (단순히 에러/임계값 비율로 표시)
+        macro_score = min(100.0, round((avg_error / self.base_threshold) * 50, 2))
+        if not is_human:
+            # 임계값을 넘는 순간 50~100 사이로 표기
+            macro_score = min(100.0, 50.0 + (avg_error - self.base_threshold) * 100)
 
-        # 스케일링 적용
-        X_infer_reshaped = X_infer.reshape(-1, n_features)
-        X_infer_scaled = self.scaler.transform(X_infer_reshaped)
-        X_infer = X_infer_scaled.reshape(n_infer, seq_len, n_features)
-        
-        # 마지막 시퀀스만 사용
-        X_tensor = torch.tensor(X_infer[-1], dtype=torch.float32).unsqueeze(0).to(self.device)
-        
-        # labeling
-        with torch.no_grad():
-            X_recon = self.model(X_tensor)
-            recon_error = torch.abs(X_recon - X_tensor).mean(dim=(1,2)).cpu().item()
-        
-        if globals.CHART_DATA is not None:
-            globals.CHART_DATA.put((X_tensor.cpu().numpy(), recon_error))
+        # 5. 모니터링 데이터 전송
+        if g_vars.CHART_DATA is not None:
+            try:
+                g_vars.CHART_DATA.put_nowait((X_tensor.cpu().numpy(), avg_error, self.base_threshold))
+            except: pass
 
-        return {"is_human": recon_error < self.threshold, "prob": recon_error}
+        return {
+            "is_human": is_human,
+            "macro_probability": f"{'🚨 MACRO' if not is_human else '🙂 HUMAN'}",
+            "prob_value": macro_score,
+            "raw_error": round(avg_error, 5),
+            "threshold": self.base_threshold
+        }

@@ -1,80 +1,93 @@
-from pynput.mouse import Controller
-
+from pynput import mouse
 import time
-import app.core.globals as globals
+import app.core.globals as g_vars
 from datetime import datetime
-from multiprocessing import Queue
-
+from multiprocessing import Queue, Event
 from app.services.macro_dectector import MacroDetector
-from multiprocessing import Event
 
 def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
     if stop_event is None:
         stop_event = Event()
 
+    # Detector 초기화
     detector = MacroDetector(
-        model_path=globals.save_path,
-        seq_len=globals.SEQ_LEN,
-        threshold=globals.threshold,
+        model_path=g_vars.save_path,
+        seq_len=g_vars.SEQ_LEN,
+        threshold=g_vars.threshold,
         chart_Show=chart_Show,
         stop_event=stop_event
     )
 
     detector.start_plot_process()
-    
+
+    # 시작 전 카운트다운
+    timeinterval = 7
+    while timeinterval > 0:
+        msg = f"train 시작까지 count : {timeinterval}"
+        if log_queue: log_queue.put(msg)
+        else: print(msg)
+        
+        time.sleep(1)
+        timeinterval -= 1
+            
     if log_queue:
         log_queue.put("🟢 Macro Detector Running")
     else:
         print("🟢 Macro Detector Running")
 
-    mouse_controller = Controller()
+    state = {
+        'last_ts': time.perf_counter()
+    }
 
-    pre_x = None
-    pre_y = None
-    last_ts = time.perf_counter()
-
-    while not stop_event.is_set():
-        x, y = mouse_controller.position
+    def on_move(x, y):
         now_ts = time.perf_counter()
+        delta = now_ts - state['last_ts']
 
-        if pre_x is None or pre_y is None:
-            pre_x, pre_y = x, y
-            last_ts = now_ts
-            continue
+        if delta >= g_vars.tolerance:
+            data = {
+                'timestamp': datetime.now().isoformat(),
+                'x': int(x),
+                'y': int(y),
+                'deltatime': delta
+            }
+            state['last_ts'] = now_ts
+            g_vars.MOUSE_QUEUE.put(data)
 
-        if x == pre_x and y == pre_y:
-            last_ts = now_ts
-            continue
+    listener = mouse.Listener(on_move=on_move)
+    listener.start()
 
-        delta = now_ts - last_ts
-        
-        last_ts = now_ts
+    try:
+        while not stop_event.is_set():
+            if not g_vars.MOUSE_QUEUE.empty():
+                step_data = g_vars.MOUSE_QUEUE.get()
+                
+                # 실제 무거운 추론 작업 수행
+                result = detector.push(step_data)
 
-        data = {
-            'timestamp': datetime.now().isoformat(),
-            'x': int(x),
-            'y': int(y),
-            'deltatime': delta
-        }
+                if result:
+                    m_str = result.get('macro_probability', "0%")
+                    raw_e = result.get('raw_error', 0.0)
 
-        pre_x, pre_y = x, y
+                    if result.get("is_human", True):
+                        log_msg = f"🙂 HUMAN | {m_str} (err: {raw_e:.4f})"
+                    else:
+                        log_msg = f"🚨 MACRO DETECTED | {m_str} (err: {raw_e:.4f}) 🚨"
 
-        result = detector.push(data)
-
-        if result:
-            if result["is_human"]:
-                if log_queue:
-                    log_queue.put(f"🙂 HUMAN | prob={result['prob']:.3f}")
-                else:
-                    print(f"🙂 HUMAN | prob={result['prob']:.3f}")
+                    if log_queue:
+                        log_queue.put(log_msg)
+                    else:
+                        print(log_msg)
             else:
-                if log_queue:
-                    log_queue.put(f"🚨 MACRO | prob={result['prob']:.3f}") 
-                else:
-                    print(f"🚨 MACRO | prob={result['prob']:.3f}") 
-    if log_queue:
-        log_queue.put("🛑 Macro Detector Stopped")
-    else:
-        print("🛑 Macro Detector Stopped")
+                time.sleep(0.001)
 
-    stop_event.set()    
+    except Exception as e:
+        error_msg = f"에러 발생: {e}"
+        if log_queue: log_queue.put(error_msg)
+        else: print(error_msg)
+    finally:
+        listener.stop()  # 리스너 안전 종료
+        if log_queue:
+            log_queue.put("🛑 Macro Detector Stopped")
+        else:
+            print("🛑 Macro Detector Stopped")
+        stop_event.set()

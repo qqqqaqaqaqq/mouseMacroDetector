@@ -4,7 +4,7 @@ from app.db.session import SessionLocal
 
 from sqlalchemy import text
 from app.models.MousePoint import MousePoint
-import app.core.globals as globals
+import app.core.globals as g_vars
 from multiprocessing import Queue
 
 def point_clear(log_queue:Queue=None):

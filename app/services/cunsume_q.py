@@ -2,7 +2,7 @@ import os
 import json
 
 from multiprocessing import Queue
-import app.core.globals as globals
+import app.core.globals as g_vars
 
 from app.db.session import SessionLocal
 from app.models.MousePoint import MousePoint
@@ -10,12 +10,12 @@ from app.models.MousePoint import MousePoint
 def cunsume_q(record:bool, isUser:bool, log_queue:Queue = None):
     all_data = []
 
-    while not globals.MOUSE_QUEUE.empty():
-        all_data.append(globals.MOUSE_QUEUE.get())        
+    while not g_vars.MOUSE_QUEUE.empty():
+        all_data.append(g_vars.MOUSE_QUEUE.get())        
     
     all_data.sort(key=lambda x: x['timestamp'])
 
-    if record and globals.Recorder == "postgres":
+    if record and g_vars.Recorder == "postgres":
         db = SessionLocal()
         try:
             for item in all_data:
@@ -35,15 +35,15 @@ def cunsume_q(record:bool, isUser:bool, log_queue:Queue = None):
                 log_queue.put(f"[Process] DB 저장 오류: {e}")
         finally:
             db.close()
-    elif record and globals.Recorder == "json":
+    elif record and g_vars.Recorder == "json":
         if isUser:
-            save_dir = os.path.join(globals.JsonPath, "user")
+            save_dir = os.path.join(g_vars.JsonPath, "user")
             os.makedirs(save_dir, exist_ok=True)            
             file_name = "user_move.json"
         else:
-            save_dir = os.path.join(globals.JsonPath, "macro")
+            save_dir = os.path.join(g_vars.JsonPath, "move_data")
             os.makedirs(save_dir, exist_ok=True)              
-            file_name = "macro_move.json"
+            file_name = "move_data.json"
 
         file_path = os.path.join(save_dir, file_name)
 
