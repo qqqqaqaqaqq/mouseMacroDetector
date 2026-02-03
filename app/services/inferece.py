@@ -24,7 +24,7 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
     timeinterval = 7
 
     while timeinterval > 0:
-        msg = f"train 시작까지 count : {timeinterval}"
+        msg = f"inference 시작까지 count : {timeinterval}"
         if log_queue: log_queue.put(msg)
         else: print(msg)
         
@@ -83,9 +83,9 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
                     raw_e = result.get('raw_error', 0.0)
 
                     if result.get("is_human", True):
-                        log_msg = f"🙂 HUMAN | {m_str} (err: {raw_e:.4f})"
+                        log_msg = f"{m_str} (err: {raw_e:.4f})"
                     else:
-                        log_msg = f"🚨 MACRO DETECTED | {m_str} (err: {raw_e:.4f}) 🚨"
+                        log_msg = f"{m_str} (err: {raw_e:.4f}) 🚨"
 
                     if log_queue:
                         log_queue.put(log_msg)

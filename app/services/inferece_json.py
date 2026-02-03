@@ -25,7 +25,7 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
 
     while timeinterval != 0:
         timeinterval -= 1
-        log_queue.put(f"train 시작까지 count : {timeinterval}")
+        log_queue.put(f"inference 시작까지 count : {timeinterval}")
 
         time.sleep(1)
 
@@ -57,10 +57,10 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
             raw_e = result.get('raw_error', 0.0)
 
             if result["is_human"]:
-                log_msg = f"🙂 HUMAN | {m_str} (err: {raw_e:.4f})"
+                log_msg = f"{m_str} (err: {raw_e:.4f})"
             else:
                 # 매크로 판정 시 사이렌 이모지와 함께 확률 강조
-                log_msg = f"🚨 MACRO DETECTED | {m_str} (err: {raw_e:.4f}) 🚨"
+                log_msg = f"{m_str} (err: {raw_e:.4f}) 🚨"
 
             # 출력 대상 선택 (Queue 혹은 Print)
             if log_queue:

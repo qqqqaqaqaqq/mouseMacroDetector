@@ -124,7 +124,6 @@ class Settings(BaseSettings):
                     "speed_var": {"min": 0.0, "max": 0.0},
                     "acc_smoothness": {"min": 0.0, "max": 0.0}
                 },
-                "drop_out": 0.3
             }
 
             with open(config_path, "w", encoding="utf-8") as f:
