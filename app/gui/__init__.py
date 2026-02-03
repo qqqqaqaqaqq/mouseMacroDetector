@@ -1,4 +1,5 @@
-# [Global/Core 연동 섹션]
+import app.core.globals as g_vars\
+
 try:
     import app.core.globals as g_vars
     from app.gui.handlers import UIHandler

@@ -24,7 +24,7 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
     timeinterval = 7
 
     while timeinterval > 0:
-        msg = f"train 시작까지 count : {timeinterval}"
+        msg = f"inference 시작까지 count : {timeinterval}"
         if log_queue: log_queue.put(msg)
         else: print(msg)
         
@@ -33,11 +33,11 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
             
     if log_queue:
         log_queue.put("🟢 Macro Detector Running")
+        log_queue.put("🚨 데이터 극 초반은 macro로 작동하며 점차 적으로 하락합니다")
     else:
         print("🟢 Macro Detector Running")
-
-    log_queue.put("🚨 데이터 극 초반은 macro로 작동하며 점차 적으로 하락합니다")
-
+        print("🚨 데이터 극 초반은 macro로 작동하며 점차 적으로 하락합니다")
+    
     state = {
         'last_ts': time.perf_counter(),
         "lendata": 0,
@@ -62,9 +62,15 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
                 state['lendata'] += 1
 
                 if state['lendata'] <= g_vars.SEQ_LEN * 2:
-                    log_queue.put(f"⏳ Data 수집 중... {state['lendata']} / {g_vars.SEQ_LEN * 2}")
+                    if log_queue:
+                        log_queue.put(f"⏳ Data 수집 중... {state['lendata']} / {g_vars.SEQ_LEN * 2}")
+                    else:
+                        print(f"⏳ Data 수집 중... {state['lendata']} / {g_vars.SEQ_LEN * 2}")
                 elif state['lendata'] == g_vars.SEQ_LEN:
-                    log_queue.put("✅ Data 수집 완료")
+                    if log_queue:
+                        log_queue.put("✅ Data 수집 완료")
+                    else:
+                        print("✅ Data 수집 완료")
                     state['lendata'] = None
 
     listener = mouse.Listener(on_move=on_move)
@@ -83,9 +89,9 @@ def main(stop_event=None, log_queue:Queue=None, chart_Show=True):
                     raw_e = result.get('raw_error', 0.0)
 
                     if result.get("is_human", True):
-                        log_msg = f"🙂 HUMAN | {m_str} (err: {raw_e:.4f})"
+                        log_msg = f"{m_str} (err: {raw_e:.4f})"
                     else:
-                        log_msg = f"🚨 MACRO DETECTED | {m_str} (err: {raw_e:.4f}) 🚨"
+                        log_msg = f"{m_str} (err: {raw_e:.4f}) 🚨"
 
                     if log_queue:
                         log_queue.put(log_msg)

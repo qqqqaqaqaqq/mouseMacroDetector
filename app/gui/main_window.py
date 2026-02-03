@@ -11,6 +11,7 @@ from multiprocessing import Event
 
 import app.core.globals as g_vars
 from app.gui import UIHandler
+from app.utilites.get_resource_path import get_resource_path
 
 class VantageUI(QMainWindow):
     def __init__(self):
@@ -323,15 +324,19 @@ class VantageUI(QMainWindow):
         테마 색상 및 폰트를 적용하고, 
         특히 보이지 않던 툴팁(Hint)의 스타일을 강제로 설정합니다.
         """
+        print("css 불러오는중")
         c = self.themes[self.current_theme]
-        base_path = sys._MEIPASS if getattr(sys, 'frozen', False) else os.path.dirname(os.path.abspath(__file__))
-        css_path = os.path.join(base_path, "style.css")
+        css_path = get_resource_path(os.path.join("app", "gui", "style.css"))
+    
+        print(f"최종 경로: {css_path}")
+        print(f"파일 존재 여부: {os.path.exists(css_path)}")
 
         try:
             # 1. 외부 style.css 읽기
             if os.path.exists(css_path):
                 with open(css_path, "r", encoding="utf-8") as f:
                     style = f.read()
+                    print("CSS 불러오기 성공")
             else:
                 style = "" # 파일이 없을 경우 대비
 
