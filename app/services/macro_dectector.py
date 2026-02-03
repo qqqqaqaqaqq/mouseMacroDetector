@@ -51,7 +51,8 @@ class MacroDetector:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
 
         # [변경] 최근 100개 데이터 포인트만 유지 (연산 효율화)
-        self.buffer = deque(maxlen=100) 
+        self.weight = 2
+        self.buffer = deque(maxlen=seq_len * self.weight) 
         
         # 노이즈 방지를 위해 최근 3~5개 에러의 평균만 사용 (순간적인 튐 방지)
         self.smooth_error_buf = deque(maxlen=5) 
@@ -79,8 +80,9 @@ class MacroDetector:
         self.buffer.append((data.get('x'), data.get('y'), data.get('timestamp'), data.get('deltatime')))
         
         # 최소 seq_len은 채워져야 분석 시작
-        if len(self.buffer) < self.seq_len:
+        if len(self.buffer) < self.seq_len * self.weight:
             return None
+        
         return self._infer()
 
     def start_plot_process(self):
@@ -98,7 +100,7 @@ class MacroDetector:
         self.plot_proc.start()
 
     def _infer(self):
-        # 1. 최근 100개 데이터로 피처 생성
+
         df = pd.DataFrame(list(self.buffer), columns=["x", "y", "timestamp", "deltatime"])
         df = indicators_generation(df)
 

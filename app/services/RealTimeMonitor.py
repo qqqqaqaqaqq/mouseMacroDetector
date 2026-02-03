@@ -9,7 +9,7 @@ class RealTimeMonitor:
         self.app = QApplication.instance() or QApplication(sys.argv)
             
         self.win = pg.GraphicsLayoutWidget(show=True, title="Real-time Feature Monitor")
-        self.win.resize(1200, 800) # 가로를 좀 더 넓게 조절
+        self.win.resize(1200, 950)
         
         self.features = features
         self.window_size = window_size
@@ -82,7 +82,7 @@ class TrainMonitor:
             show=True,
             title="Model Training Monitor"
         )
-        self.win.resize(900, 450)
+        self.win.resize(1200, 950)
 
         self.window_size = window_size
 
