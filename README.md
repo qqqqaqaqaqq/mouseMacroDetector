@@ -20,8 +20,8 @@ Detection Logic
 
 ![Architecture Diagram](./public/Architecture.png)
 
-* 정식 1.0.0 버전 출시 전까지 기능 개선 및 안정화를 위해 빈번한 업데이트가 진행될 예정입니다.
-* Frequent updates are expected for feature enhancement and stabilization until the official v1.0.0 release.
+# 정식 1.0.0 버전 출시 전까지 기능 개선 및 안정화를 위해 빈번한 업데이트가 진행될 예정입니다.
+# Frequent updates are expected for feature enhancement and stabilization until the official v1.0.0 release.
 
 # 🚀 Macro Detector Update (Ver 0.0.4)
 
