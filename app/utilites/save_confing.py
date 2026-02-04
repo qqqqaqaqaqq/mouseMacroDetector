@@ -35,7 +35,7 @@ def update_parameters(data_dict:dict):
                 "WEIGHT" : ('weight_decay', float),
                 "FEED" : ('dim_feedforward', int),
                 "DROP" : ('dropout', float),
-                "WEIGHT_THRES" : {'weight_threshold', float}
+                "WEIGHT_THRES" : ('weight_threshold', float)
             }
 
             for ui_key, (json_key, dtype) in mapping.items():
