@@ -20,6 +20,9 @@ Detection Logic
 
 ![Architecture Diagram](./public/Architecture.png)
 
+* 정식 1.0.0 버전 출시 전까지 기능 개선 및 안정화를 위해 빈번한 업데이트가 진행될 예정입니다.
+* Frequent updates are expected for feature enhancement and stabilization until the official v1.0.0 release.
+
 # 🚀 Macro Detector Update (Ver 0.0.4)
 
 ## 📝 Change Log (KO)
@@ -27,6 +30,15 @@ Detection Logic
 * **통신 안정화**: 웹소켓(WebSocket) 연결 및 스트리밍 안정성 강화
 * **스키마 정의**: `app.models.MouseDetectorSocket.py` 내 Request/Response 모델 정립
 * **테스트 도구**: 프론트엔드와 백엔드 통합 웹 테스트 환경(`test_web`) 추가
+
+```
+# backend
+python -m uvicorn main:app --host 0.0.0.0 --port 8300 --reload
+
+# frontend
+npx vite
+```
+
 
 ## 📝 Change Log (EN)
 * **Model Upgrade**: Re-trained the model with an expanded `d_model` to accommodate increasing user data.
