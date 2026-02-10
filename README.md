@@ -23,46 +23,42 @@ Detection Logic
 # 정식 1.0.0 버전 출시 전까지 기능 개선 및 안정화를 위해 빈번한 업데이트가 진행될 예정입니다.
 # Frequent updates are expected for feature enhancement and stabilization until the official v1.0.0 release.
 
-# 🚀 Macro Detector Update (Ver 0.0.4)
+# 🚀 Macro Detector Update (Ver 0.0.5)
 
-## 📝 Change Log (KO)
-* **모델 업그레이드**: 유저 데이터 증가에 대응하여 `d_model` 차원 확장 및 재훈련 수행
-* **통신 안정화**: 웹소켓(WebSocket) 연결 및 스트리밍 안정성 강화
-* **스키마 정의**: `app.models.MouseDetectorSocket.py` 내 Request/Response 모델 정립
-* **테스트 도구**: 프론트엔드와 백엔드 통합 웹 테스트 환경(`test_web`) 추가
+### 🇰🇷 한글 업데이트 내역 (Korean)
 
-```
-# backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8300 --reload
+#### 📊 주요 변경 사항
+* **데이터셋 확장**: 실제 게임 환경 기반의 마우스 좌표 데이터를 대폭 추가하여 실전 탐지 성능 강화.
+* **추론 시각화 지원**: JSON 데이터 추론 시, 탐지 결과를 시각적으로 확인 가능한 **가우스 정규분포 차트** 출력을 지원합니다.
+  ![Architecture Diagram](./public/chart.png)
+* **알고리즘 최적화**: 
+    * 새로운 Feature 추출 로직 및 모델 파라미터 조정 (세부 사항은 `config.json` 참고).
 
-# frontend
-npx vite
-```
+#### 🏗️ 시스템 아키텍처 및 UI
+* **프로젝트 구조 분리**: 유지보수를 위해 `application`, `backend`, `frontend` 레이어로 모듈화.
+* **보안 섹션 UI/UX**: 보안 대시보드 전용 UI를 추가하여 데이터 모니터링 편의성 증대.
 
-## 📝 Change Log (EN)
-* **Model Upgrade**: Re-trained the model with an expanded `d_model` to accommodate increasing user data.
-* **WebSocket Stability**: Enhanced stability for real-time WebSocket communication.
-* **Schema Definition**: Established `RequestBody` and `ResponseBody` in `app.models.MouseDetectorSocket.py`.
-* **Testing Suite**: Provided `test_web` environment for seamless integration testing.
+---
 
-## 🛠 Data Models
-**File:** `app.models.MouseDetectorSocket.py`
+### 🇺🇸 English Update Notes
 
-```
-python
-from pydantic import BaseModel
-from typing import List, Optional
+#### 📊 Key Updates
+* **Dataset Expansion**: Integrated extensive mouse coordinate data from real-world gaming environments for enhanced robustness.
+* **Inference Plotting**: Supports **Gaussian normal distribution charts** to visualize inference results during analysis.
+* **Algorithmic Refinement**: 
+    * **Loss Calculation**: Switched from `MSE` to **`MAE`** (Mean Absolute Error) for better handling of outliers.
+    * New feature extraction logic and tuned model parameters (See `config.json`).
 
-class RequestBody(BaseModel):
-    id: str
-    data: List[dict]
+#### 🏗️ Architecture & UI
+* **Modular Structure**: Decoupled into `application`, `backend`, and `frontend` layers for better scalability.
+* **Security UI/UX**: Introduced a dedicated security dashboard and components for professional monitoring.
 
-class ResponseBody(BaseModel):
-    id: str
-    status: int
-    analysis_results: List[str]
-    message: Optional[str] = None
-```
+---
+
+### 📦 Installation & Upgrade (설치 및 업데이트)
+
+```bash
+pip install git+https://github.com/qqqqaqaqaqq/mouseMacroLibrary.git
 
 ---
 
