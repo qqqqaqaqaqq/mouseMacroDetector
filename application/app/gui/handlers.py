@@ -10,13 +10,12 @@ from app.services.train.train import TrainMode
 import app.services.inference.inferece as inferece
 import app.services.inference.inferece_json as inferece_json
 from app.gui.plots.plot import plot_main
-import app.repostitories.DBController as DBController
-import app.repostitories.JsonController as JsonController
+
 import app.services.recorders.userMouse as useMouse
 from app.utilites.save_confing import update_parameters
 
 from PyQt6.QtWidgets import QSpacerItem, QSizePolicy, QMessageBox, QSystemTrayIcon, QMenu
-from PyQt6.QtGui import QIcon, QAction
+from PyQt6.QtGui import QAction
 from PyQt6.QtCore import QTimer
 
 class UIHandler:
@@ -94,26 +93,23 @@ class UIHandler:
     def make_plot(self, user=False):
         # 1440px UI에서 버튼 연동을 위해 추가
         try:
-            if g_vars.Recorder == "postgres":
-                points = DBController.read(user, log_queue=g_vars.LOG_QUEUE)
-            else:
-                from tkinter import filedialog     
-                import json
+            from tkinter import filedialog     
+            import json
 
-                points:list[dict]
+            points:list[dict]
 
-                file_pahh = filedialog.askopenfilename(title="Json 파일을 선택해 주세요", filetypes=(("json 파일", "*.json"), ("모든 파일", "*.*")))
-                if not os.path.exists(file_pahh):
-                    return [] 
+            file_pahh = filedialog.askopenfilename(title="Json 파일을 선택해 주세요", filetypes=(("json 파일", "*.json"), ("모든 파일", "*.*")))
+            if not os.path.exists(file_pahh):
+                return [] 
 
-                try:
-                    with open(file_pahh, "r", encoding="utf-8") as f:
-                        data = json.load(f)
-                
-                    points = data
-                except Exception as e:
-                    print(e)
-                    points = []
+            try:
+                with open(file_pahh, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+            
+                points = data
+            except Exception as e:
+                print(e)
+                points = []
 
             Process(
                 target=plot_main, 
@@ -122,15 +118,6 @@ class UIHandler:
             ).start()
         except Exception as e:
             g_vars.LOG_QUEUE.put(f"Plot Error: {e}")
-
-    def clear_db(self):
-        if self._ask_confirm("확인", "Mouse DB를 초기화하시겠습니까?"):
-            if g_vars.Recorder == "postgres":
-                DBController.point_clear(log_queue=g_vars.LOG_QUEUE)
-                g_vars.LOG_QUEUE.put("Mouse DB 초기화 완료")
-                QMessageBox.information(None, "완료", "초기화가 완료되었습니다.")
-            else:
-                QMessageBox.warning(None, "경고", "Json 파일을 직접 지워주세요.")
 
     def setup_tray(self):
         if not self.parent:

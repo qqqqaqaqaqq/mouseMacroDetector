@@ -3,14 +3,9 @@ import numpy as np
 
 def indicators_generation(df_chunk: pd.DataFrame) -> pd.DataFrame:
     df = df_chunk.copy()
+    eps = 1e-9
+    dt = df["deltatime"]
 
-    for col in ['x', 'y', 'deltatime']:
-        if col in df.columns:
-            df[col] = pd.to_numeric(df[col], errors='coerce').astype(np.float64)
-
-    dt = df["deltatime"].replace(0, 1e-6)
-
-    # ===== 기본 이동 =====
     df["dx"] = df["x"].diff()
     df["dy"] = df["y"].diff()
     df["dist"] = np.hypot(df["dx"], df["dy"])
@@ -19,41 +14,27 @@ def indicators_generation(df_chunk: pd.DataFrame) -> pd.DataFrame:
     df["acc"] = df["speed"].diff() / dt
     df["jerk"] = df["acc"].diff() / dt
 
-    # ===== 방향 =====
     df["theta"] = np.arctan2(df["dy"], df["dx"])
-    unwrapped = np.unwrap(df["theta"].fillna(0).values)
-    df["angular_speed"] = (pd.Series(unwrapped, index=df.index).diff() / dt)
-    df["direction_change"] = df["theta"].diff().abs()
+    df["angle_vel"] = df["theta"].diff().pipe(lambda x: np.arctan2(np.sin(x), np.cos(x))) / dt
 
-    # ===== 🔥 매크로 분리용 핵심 =====
+    # 4. Micro-shake
+    df["micro_shake"] = (df["speed"].diff().abs() + df["angle_vel"].diff().abs())
 
-    # 1️⃣ micro shaking (인간은 미세 진동 많음)
-    df["micro_shake"] = (df["dx"].diff().abs() + df["dy"].diff().abs())
+    # 5. Curvature
+    x1, y1 = df["x"].shift(3), df["y"].shift(3)
+    x2, y2 = df["x"].shift(6), df["y"].shift(6)
+    a = np.hypot(x1 - x2, y1 - y2)
+    b = np.hypot(df["x"] - x1, df["y"] - y1)
+    c = np.hypot(df["x"] - x2, df["y"] - y2)
+    s = (a + b + c) / 2
+    area = np.sqrt(np.maximum(0, s * (s - a) * (s - b) * (s - c)))
+    df["curvature"] = np.where(a*b*c > eps, (4 * area) / (a * b * c + eps), 0)
 
-    # 2️⃣ jerk window std (인간은 변동 큼)
-    df["jerk_std"] = df["jerk"].rolling(5).std()
-
-    # 3️⃣ speed window std
-    df["speed_std"] = df["speed"].rolling(5).std()
-
-    # 4️⃣ dt 변동성
-    df["dt_std"] = dt.rolling(5).std()
-
-    # 5️⃣ 방향 변화율
-    df["direction_change_rate"] = df["direction_change"].rolling(5).mean()
-
-    # 6️⃣ 선형성 점수 (직선이면 매크로 확률↑)
-    total_dist = df["dist"].rolling(10).sum()
-    straight_dist = np.hypot(df["x"].diff(10), df["y"].diff(10))
-    df["linearity"] = straight_dist / (total_dist + 1e-6)
-
-    # 7️⃣ 속도 자기상관 (매크로는 패턴 일정)
-    df["speed_autocorr"] = df["speed"].rolling(10).corr(df["speed"].shift(1))
-
-    # 8️⃣ 로그 변환으로 극단 강화
-    df["log_jerk"] = np.sign(df["jerk"]) * np.log1p(np.abs(df["jerk"]))
-    df["log_speed"] = np.log1p(df["speed"])
-
+    # 6. 비선형성 (energy_impact)
+    df["energy_impact"] = df["acc"] * df["jerk"]
+    df["low_speed_const_acc"] = np.where(df["speed"] < 1.0, df["acc"].rolling(5).std(), 1.0)
+    
+    # 결측치 처리
     df = df.replace([np.inf, -np.inf], np.nan).fillna(0)
 
     return df

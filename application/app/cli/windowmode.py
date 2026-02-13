@@ -56,7 +56,7 @@ def windowmode():
     )
     res_thread.start()
 
-    user_input3 = input("🚀 Mode Select [1: 📡 Socket, 2: 📂 Load JSON, 3: 💻 Live Window]: ").strip()
+    user_input3 = input("🚀 Mode Select [1: 📡 Socket, 2: 📂 Load JSON ").strip()
 
     if user_input3 == "1":
         import app.services.inference.inferece_socket as inferece_socket
@@ -69,14 +69,7 @@ def windowmode():
         inference_json.main(
             stop_event=stop_move_event,
             chart_Show=chart_Show,
-        )
-    elif user_input3 == "3":
-        import app.services.inference.inferece as inference
-        # 인퍼런스 실행 (이 함수가 종료될 때까지 대기함)
-        inference.main(
-            stop_event=stop_move_event,
-            chart_Show=chart_Show,
-        )               
+        )           
     else:
         print("❌ 잘못된 입력입니다. 1, 2, 3 중에서 선택해주세요.")
         sys.exit()

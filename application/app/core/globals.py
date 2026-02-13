@@ -18,22 +18,25 @@ SEQ_LEN = settings.SEQ_LEN
 STRIDE = settings.STRIDE
 
 FEATURES = [
-    "angular_speed",
+    "dist",
+    "speed",
+    "jerk",
     "micro_shake",
-    "speed_std",
-    "dt_std",
-    "deltatime"
+    "curvature",
+    "angle_vel",
+    "low_speed_const_acc"
 ]
 
+input_size = len(FEATURES) * 3
 LAST_EVENT_TS:float = 0.0
 
 MACRO_DETECTOR  = [] 
 
-Recorder = settings.Recorder
 JsonPath = settings.JsonPath
 
 threshold = settings.threshold
 improvement_val_loss_cut = settings.improvement_val_loss_cut
+chunk_size = settings.chunk_size
 
 # model
 d_model=settings.d_model
@@ -61,9 +64,12 @@ TRAIN_DATA = None
 INFERENCE_CHART_VIEW = None
 PROCESS_LOCK = None
 
-save_path = get_resource_path(os.path.join("app", "models", "weights", "mouse_macro_lstm_best.pt"))
+init_model_path = ""
+init_scale_path = ""
+
+save_path = get_resource_path(os.path.join("app", "models", "weights"))
 plot_data_path = get_resource_path(os.path.join("app", "models", "weights", "ploat_data.json"))
-scaler_path = get_resource_path(os.path.join("app", "models", "weights", "scaler.pkl"))
+scaler_path = get_resource_path(os.path.join("app", "models", "weights"))
 
 def init_manager():
     global LOG_QUEUE

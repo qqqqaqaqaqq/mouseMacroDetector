@@ -3,7 +3,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
 import dataclasses
 
-
 Base = declarative_base()
 
 @dataclasses.dataclass

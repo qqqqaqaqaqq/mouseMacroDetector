@@ -173,3 +173,15 @@ Standardized detection logic to ensure universal performance across different ha
 * **Emergency Quit:** `Ctrl + Shift + Q`
 
 ![Cmdupdate](./public/Cmdupdate.png)
+
+
+## 📂 Data Management
+* **Database Support:** Efficient data handling using **JSON** formats.
+
+## 🛠 Installation
+* To install the required dependencies, run the following command:
+  ```bash
+  pip install -r requirements.txt
+
+## 사용 설명서 (Manual)
+Manual.pptx

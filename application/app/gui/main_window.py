@@ -205,7 +205,6 @@ class VantageUI(QMainWindow):
 
         self.scroll_layout.addWidget(self.create_section("🧠 AI ENGINE", [
             ("Run Model Training", self.handler.start_train),
-            ("Start Real-time Inference", self.handler.start_inference),
             ("Json Data Inference", self.handler.start_inference_json)            
         ]))
 
@@ -283,7 +282,9 @@ class VantageUI(QMainWindow):
             "데이터를 슬라이딩할 간격입니다. 낮을수록 데이터 양이 많아집니다.")
         self.inputs['TOLE'] = self.add_grid_input(grid, "TOLERANCE", str(g_vars.tolerance), 1, 2, 
             "데이터 수집 시 변화를 감지할 최소 허용 오차입니다.")
-
+        self.inputs['CHUNK_SIZE'] = self.add_grid_input(grid, "CHUNK_SIZE", str(g_vars.chunk_size), 1, 3, 
+            "(가우스 정규분포) 통계적 특징 추출을 위한 윈도우 크기(Window Size)입니다.")
+        
         # --- 그룹 2: MODEL ARCHITECTURE ---
         grid.addWidget(QLabel("🧠 ARCHITECTURE"), 2, 0, 1, 3)
         self.inputs['D_MODEL'] = self.add_grid_input(grid, "D_MODEL", str(g_vars.d_model), 3, 0, 
@@ -458,6 +459,7 @@ class VantageUI(QMainWindow):
                     "DROP" : str(g_vars.dropout),
                     "WEIGHT_THRES" : str(g_vars.weight_threshold),
                     "IMPROVEMENT_CUT" : str(g_vars.improvement_val_loss_cut),
+                    "CHUNK_SIZE" : str(g_vars.chunk_size)
                 }
 
                 for key, current_gvar_val in sync_map.items():

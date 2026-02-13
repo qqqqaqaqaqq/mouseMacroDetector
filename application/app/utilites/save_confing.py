@@ -26,7 +26,6 @@ def update_parameters(data_dict:dict):
                 'LR': ('lr', float),
                 'THRES': ('threshold', float),
                 'TOLE': ('tolerance', float),
-                'RECORDER': ('Recorder', str),
                 'N_HEAD' : ('n_head', int),
                 'BATCH' : ('batch_size', int),
                 "EPOCH" : ('epoch', int),
@@ -36,6 +35,7 @@ def update_parameters(data_dict:dict):
                 "DROP" : ('dropout', float),
                 "WEIGHT_THRES" : ('weight_threshold', float),
                 "IMPROVEMENT_CUT" : ('improvement_val_loss_cut', float),
+                "CHUNK_SIZE" : ('chunk_size', int)
             }
 
             for ui_key, (json_key, dtype) in mapping.items():

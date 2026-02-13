@@ -42,13 +42,8 @@ if __name__ == "__main__":
 
         else:
             from app.gui.main_window import VantageUI
-            from app.db.session import init_db
             from PyQt6.QtWidgets import QApplication
             import app.core.globals as g_vars
-            
-            if settings.Recorder == "postgres": 
-                print("실행")
-                init_db()
         
             g_vars.init_manager()
 
